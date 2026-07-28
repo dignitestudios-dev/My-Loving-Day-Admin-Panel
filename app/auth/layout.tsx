@@ -1,7 +1,6 @@
 "use client";
 
 import { Logo } from "@/components/logo";
-import GridShape from "@/components/grid-shape";
 import { PublicRoute } from "@/components/PublicRoute";
 
 export default function RootLayout({
@@ -12,20 +11,21 @@ export default function RootLayout({
   return (
     <PublicRoute>
       <div className="flex h-screen">
-        {/* Left side - Form */}
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-1 items-center justify-center p-8">
           {children}
         </div>
-        {/* Right side - Brand */}
-        <div className="lg:w-1/2 w-full h-full bg-slate-600 lg:grid items-center hidden">
-          <div className="relative items-center justify-center  flex z-1">
-            {/* <!-- ===== Common Grid Shape Start ===== --> */}
-            <GridShape />
-            <div className="flex flex-col items-center max-w-xs">
-              <Logo size={100} color="#ffffff" />
-              <h1 className="text-white text-4xl font-semibold">Admin Panel</h1>
-              <p className="text-center text-gray-400 mt-2">
-                Welcome to the Admin Panel. Please Sign in to Continue.
+        <div
+          className="hidden h-full w-full items-center bg-cover bg-center bg-no-repeat lg:grid lg:w-1/2"
+          style={{ backgroundImage: "url('/images/loginbg.png')" }}
+        >
+          <div className="relative z-1 flex items-center justify-center">
+            <div className="flex max-w-xs flex-col items-center">
+              <div className="mb-4 flex items-center justify-center rounded-2xl bg-white p-4 shadow-sm">
+                <Logo size={120} />
+              </div>
+              <h1 className="text-4xl font-semibold text-white">My Loving Day</h1>
+              <p className="mt-2 text-center text-white/70">
+                Welcome to the Admin Panel.
               </p>
             </div>
           </div>

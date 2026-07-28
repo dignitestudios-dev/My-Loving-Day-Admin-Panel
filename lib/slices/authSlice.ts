@@ -1,39 +1,50 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-}
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import type { AuthUser } from "@/lib/utils/cookies";
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
+  token: string | null;
   isAuthenticated: boolean;
+  isHydrated: boolean;
 }
 
 const initialState: AuthState = {
-  user: {
-    id: 1,
-    name: 'Dummy User',
-    email: 'dummy@example.com',
-  },
+  user: null,
+  token: null,
   isAuthenticated: false,
+  isHydrated: false,
 };
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState,
   reducers: {
-    login: (state) => {
+    setCredentials: (
+      state,
+      action: PayloadAction<{ user: AuthUser; token: string }>
+    ) => {
+      state.user = action.payload.user;
+      state.token = action.payload.token;
       state.isAuthenticated = true;
-      // User is already set in initial state
+      state.isHydrated = true;
+    },
+    hydrateAuth: (
+      state,
+      action: PayloadAction<{ user: AuthUser | null; token: string | null }>
+    ) => {
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.isAuthenticated = Boolean(action.payload.token);
+      state.isHydrated = true;
     },
     logout: (state) => {
-      state.isAuthenticated = false;
       state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isHydrated = true;
     },
   },
 });
 
-export const { login, logout } = authSlice.actions;
+export const { setCredentials, hydrateAuth, logout } = authSlice.actions;
 export default authSlice.reducer;

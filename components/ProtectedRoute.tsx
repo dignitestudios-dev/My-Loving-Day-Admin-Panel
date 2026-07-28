@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/lib/store';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/lib/store";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,16 +11,26 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const { isAuthenticated, isHydrated } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/auth/login');
+    if (isHydrated && !isAuthenticated) {
+      router.replace("/auth/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isHydrated, router]);
+
+  if (!isHydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="border-primary size-8 animate-spin rounded-full border-2 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
-    return null; // or a loading spinner
+    return null;
   }
 
   return <>{children}</>;

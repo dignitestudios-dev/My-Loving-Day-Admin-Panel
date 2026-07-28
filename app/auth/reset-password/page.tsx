@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useResetPasswordMutation } from "@/hooks/use-reset-password";
+import { RESET_TOKEN_KEY } from "@/lib/constants/reset-password";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -14,13 +17,29 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const router = useRouter();
+  const resetPasswordMutation = useResetPasswordMutation();
+
+  useEffect(() => {
+    const token = sessionStorage.getItem(RESET_TOKEN_KEY);
+    if (!token) {
+      toast.error("Please verify OTP first");
+      router.replace("/auth/forgot-password");
+      return;
+    }
+    setResetToken(token);
+  }, [router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Validate passwords
+    if (!resetToken) {
+      setError("Reset token missing. Please verify OTP again.");
+      return;
+    }
+
     if (!password || !confirmPassword) {
       setError("Please fill in all fields");
       return;
@@ -36,28 +55,25 @@ const ResetPassword = () => {
       return;
     }
 
-    // Reset password logic here
-    console.log("Password reset with:", password);
-    
-    // Redirect to login page
-    router.push("/auth/login");
+    resetPasswordMutation.mutate({
+      resetToken,
+      password,
+    });
   };
 
   return (
     <div className="w-full max-w-md">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h2>
-        <p className="text-gray-600">
-          Enter your new password below
-        </p>
+      <div className="mb-8 text-center">
+        <h2 className="mb-2 text-3xl font-bold text-gray-900">Reset Password</h2>
+        <p className="text-gray-600">Enter your new password below</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+        {error ? (
+          <div className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">
             {error}
           </div>
-        )}
+        ) : null}
 
         <div className="space-y-2">
           <Label htmlFor="password">New Password</Label>
@@ -69,12 +85,13 @@ const ResetPassword = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={resetPasswordMutation.isPending}
               className="pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
             >
               {showPassword ? (
                 <EyeOff className="h-5 w-5" />
@@ -95,12 +112,13 @@ const ResetPassword = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={resetPasswordMutation.isPending}
               className="pr-10"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
             >
               {showConfirmPassword ? (
                 <EyeOff className="h-5 w-5" />
@@ -111,12 +129,26 @@ const ResetPassword = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full">
-          Reset Password
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={resetPasswordMutation.isPending || !resetToken}
+        >
+          {resetPasswordMutation.isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Resetting...
+            </>
+          ) : (
+            "Reset Password"
+          )}
         </Button>
 
         <div className="text-center">
-          <Link href="/auth/login" className="text-sm text-primary hover:underline">
+          <Link
+            href="/auth/login"
+            className="text-sm text-primary hover:underline"
+          >
             Back to Sign In
           </Link>
         </div>

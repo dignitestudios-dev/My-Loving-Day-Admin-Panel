@@ -1,16 +1,11 @@
 "use client";
 
-import {
-  CreditCard,
-  EllipsisVertical,
-  LogOut,
-  BellDot,
-  CircleUser,
-} from "lucide-react";
+import { EllipsisVertical, LogOut, KeyRound } from "lucide-react";
 import Link from "next/link";
-import { useDispatch } from 'react-redux';
-import { logout } from '@/lib/slices/authSlice';
-import { useRouter } from 'next/navigation';
+import { useDispatch } from "react-redux";
+import { logout } from "@/lib/slices/authSlice";
+import { clearAuthCookies } from "@/lib/utils/cookies";
+import { useRouter } from "next/navigation";
 
 import { Logo } from "@/components/logo";
 import {
@@ -43,8 +38,9 @@ export function NavUser({
   const router = useRouter();
 
   const handleLogout = () => {
+    clearAuthCookies();
     dispatch(logout());
-    router.push('/auth/login');
+    router.push("/auth/login");
   };
 
   return (
@@ -56,12 +52,14 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg">
+              <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white">
                 <Logo size={28} />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
+              <div className="grid flex-1 text-left text-xs leading-tight">
+                <span className="truncate font-medium text-sidebar-foreground">
+                  {user.name}
+                </span>
+                <span className="truncate text-[10px] text-sidebar-foreground/70">
                   {user.email}
                 </span>
               </div>
@@ -76,7 +74,7 @@ export function NavUser({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <div className="h-8 w-8 rounded-lg">
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white">
                   <Logo size={28} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -90,21 +88,9 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/account">
-                  <CircleUser />
-                  Account
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/billing">
-                  <CreditCard />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/notifications">
-                  <BellDot />
-                  Notifications
+                <Link href="/dashboard/settings">
+                  <KeyRound />
+                  Change Password
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

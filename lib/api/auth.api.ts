@@ -1,47 +1,119 @@
-import { API } from './axios';
+import { API } from "./axios";
+import {
+  clearAuthCookies,
+  setAuthToken,
+  setAuthUser,
+  type AuthUser,
+} from "@/lib/utils/cookies";
 
-// Login API call
-export const login = async (credentials: any) => {
-  const response = await API.post('/auth/login', credentials);
-  // Store token in localStorage (handled by interceptor, but can be done here too)
-  if (response.data.token) {
-    localStorage.setItem('authToken', response.data.token);
-  }
-  return response.data;
+export type LoginCredentials = {
+  email: string;
+  password: string;
 };
 
-// Register API call
-export const register = async (credentials: any) => {
-  const response = await API.post('/auth/register', credentials);
-  if (response.data.token) {
-    localStorage.setItem('authToken', response.data.token);
-  }
-  return response.data;
+export type LoginResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    admin: AuthUser;
+  };
 };
 
-// Logout API call
-export const logout = async () => {
+export async function loginAdmin(credentials: LoginCredentials) {
+  const { data } = await API.post<LoginResponse>("/admin/login", credentials);
+
+  if (data?.success && data.data?.token) {
+    setAuthToken(data.data.token);
+    setAuthUser(data.data.admin);
+  }
+
+  return data;
+}
+
+export async function logoutAdmin() {
   try {
-    await API.post('/auth/logout');
-  } catch (error) {
-    console.error('Logout error:', error);
+    await API.post("/admin/logout");
+  } catch {
+    // Ignore logout API errors; always clear local auth
   } finally {
-    // Always remove token locally
-    localStorage.removeItem('authToken');
+    clearAuthCookies();
   }
+}
+
+export type ForgotPasswordPayload = {
+  email: string;
 };
 
-// Get current user profile
-export const getProfile = async () => {
-  const response = await API.get('/auth/profile');
-  return response.data;
+export type ForgotPasswordResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    otp: number;
+  };
 };
 
-// Refresh token (if needed)
-export const refreshToken = async () => {
-  const response = await API.post('/auth/refresh');
-  if (response.data.token) {
-    localStorage.setItem('authToken', response.data.token);
-  }
-  return response.data;
+export async function forgotPassword(payload: ForgotPasswordPayload) {
+  const { data } = await API.post<ForgotPasswordResponse>(
+    "/admin/forgot-password",
+    payload
+  );
+  return data;
+}
+
+export type VerifyOtpPayload = {
+  email: string;
+  otp: number;
 };
+
+export type VerifyOtpResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    resetToken: string;
+  };
+};
+
+export async function verifyOtp(payload: VerifyOtpPayload) {
+  const { data } = await API.post<VerifyOtpResponse>(
+    "/admin/verify-otp",
+    payload
+  );
+  return data;
+}
+
+export type ResetPasswordPayload = {
+  resetToken: string;
+  password: string;
+};
+
+export type ResetPasswordResponse = {
+  success: boolean;
+  message: string;
+};
+
+export async function resetPassword(payload: ResetPasswordPayload) {
+  const { data } = await API.post<ResetPasswordResponse>(
+    "/admin/reset-password",
+    payload
+  );
+  return data;
+}
+
+export type UpdatePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type UpdatePasswordResponse = {
+  success: boolean;
+  message: string;
+};
+
+export async function updatePassword(payload: UpdatePasswordPayload) {
+  const { data } = await API.put<UpdatePasswordResponse>(
+    "/admin/update-password",
+    payload
+  );
+  return data;
+}

@@ -4,30 +4,25 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
-import { useDispatch } from "react-redux";
-import { login } from "@/lib/slices/authSlice";
-import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useLoginMutation } from "@/hooks/use-login";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const dispatch = useDispatch();
-  const router = useRouter();
+  const loginMutation = useLoginMutation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Dummy login logic
-    dispatch(login());
-    router.push("/dashboard");
+    loginMutation.mutate({ email, password });
   };
 
   return (
     <div className="w-full max-w-md">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+      <div className="mb-8 text-center">
+        <h2 className="mb-2 text-4xl font-bold text-gray-900">Welcome Back</h2>
         <p className="text-gray-600">Sign in to your account</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -40,6 +35,7 @@ const Login = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loginMutation.isPending}
           />
         </div>
         <div className="space-y-2">
@@ -47,17 +43,18 @@ const Login = () => {
           <div className="relative">
             <Input
               id="password"
-              type={!showPassword ? "text" : "password"}
+              type={!showPassword ? "password" : "text"}
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loginMutation.isPending}
               className="pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
             >
               {showPassword ? (
                 <EyeOff className="h-5 w-5" />
@@ -77,8 +74,19 @@ const Login = () => {
           </Link>
         </div>
 
-        <Button type="submit" className="w-full">
-          Sign In
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loginMutation.isPending}
+        >
+          {loginMutation.isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            "Sign In"
+          )}
         </Button>
       </form>
     </div>

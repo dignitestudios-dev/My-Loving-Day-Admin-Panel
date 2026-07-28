@@ -1,43 +1,36 @@
 import axios from "axios";
+import { clearAuthCookies, getAuthToken } from "@/lib/utils/cookies";
 
-export const baseURL = "your-api-baseurl.com/api"; // Replace with your actual base URL
+export const baseURL ="https://api.staging.mylovingday.com";
 
-const headers = {
-  "Content-Type": "application/json",
-};
-const formDataHeaders = {
-  "Content-Type": "multipart/form-data",
-};
-
-// Create an Axios instance
 export const API = axios.create({
-  baseURL: baseURL,
-  timeout: 10000, // Set a timeout (optional)
-  headers: headers,
+  baseURL,
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Request Interceptor
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken"); // Retrieve token from storage
+    const token = getAuthToken();
     if (token) {
-      config.headers.authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401) {
-      localStorage.removeItem("authToken"); // Remove token if unauthorized
-      window.location.href = "/auth/login"; // Redirect to login page
+    if (error?.response?.status === 401 && typeof window !== "undefined") {
+      clearAuthCookies();
+      if (!window.location.pathname.startsWith("/auth/login")) {
+        window.location.href = "/auth/login";
+      }
     }
-    console.log(error);
-    console.log("API Error:", error.response?.data || error);
     return Promise.reject(error);
   }
 );
