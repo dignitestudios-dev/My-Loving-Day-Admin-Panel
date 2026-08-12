@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,18 +17,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdatePasswordMutation } from "@/hooks/use-update-password";
 
+const emptyForm = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+};
+
 export default function SettingsPage() {
-  const [form, setForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [form, setForm] = useState(emptyForm);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const updatePasswordMutation = useUpdatePasswordMutation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { mutate: updatePassword, isPending } = useUpdatePasswordMutation();
+
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
@@ -41,24 +44,28 @@ export default function SettingsPage() {
       return;
     }
 
+    if (form.newPassword === form.currentPassword) {
+      toast.error("New password must be different from the current password");
+      return;
+    }
+
     if (form.newPassword !== form.confirmPassword) {
       toast.error("New password and confirmation do not match");
       return;
     }
 
-    updatePasswordMutation.mutate(
+    updatePassword(
       {
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       },
       {
         onSuccess: (data) => {
-          if (!data?.success) return;
-          setForm({
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-          });
+          if (!data?.success) return; // hook ne error toast already dikha diya hoga
+          setForm(emptyForm);
+          setShowCurrent(false);
+          setShowNew(false);
+          setShowConfirm(false);
         },
       }
     );
@@ -66,10 +73,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your admin account security."
-      />
+      <PageHeader title="Settings" description="Manage your admin account security." />
 
       <Card className="max-w-xl">
         <CardHeader>
@@ -89,84 +93,72 @@ export default function SettingsPage() {
                 <Input
                   id="current"
                   type={showCurrent ? "text" : "password"}
+                  autoComplete="current-password"
                   value={form.currentPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, currentPassword: e.target.value })
-                  }
-                  disabled={updatePasswordMutation.isPending}
+                  onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+                  disabled={isPending}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent((prev) => !prev)}
+                  disabled={isPending}
                   className="text-muted-foreground absolute inset-y-0 right-0 flex items-center pr-3"
                 >
-                  {showCurrent ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
+                  {showCurrent ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
             </div>
+
             <div className="grid gap-2">
               <Label htmlFor="new">New Password</Label>
               <div className="relative">
                 <Input
                   id="new"
                   type={showNew ? "text" : "password"}
+                  autoComplete="new-password"
                   value={form.newPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, newPassword: e.target.value })
-                  }
-                  disabled={updatePasswordMutation.isPending}
+                  onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+                  disabled={isPending}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew((prev) => !prev)}
+                  disabled={isPending}
                   className="text-muted-foreground absolute inset-y-0 right-0 flex items-center pr-3"
                 >
-                  {showNew ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
+                  {showNew ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
+              <p className="text-muted-foreground text-xs">Must be at least 8 characters.</p>
             </div>
+
             <div className="grid gap-2">
               <Label htmlFor="confirm">Confirm New Password</Label>
               <div className="relative">
                 <Input
                   id="confirm"
                   type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
                   value={form.confirmPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, confirmPassword: e.target.value })
-                  }
-                  disabled={updatePasswordMutation.isPending}
+                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  disabled={isPending}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm((prev) => !prev)}
+                  disabled={isPending}
                   className="text-muted-foreground absolute inset-y-0 right-0 flex items-center pr-3"
                 >
-                  {showConfirm ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
+                  {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
             </div>
-            <Button
-              type="submit"
-              className="w-fit"
-              disabled={updatePasswordMutation.isPending}
-            >
-              {updatePasswordMutation.isPending ? (
+
+            <Button type="submit" className="w-fit" disabled={isPending}>
+              {isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Updating...

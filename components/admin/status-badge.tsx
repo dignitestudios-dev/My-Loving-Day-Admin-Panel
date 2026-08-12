@@ -34,7 +34,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const key = status.toLowerCase();
+  const key = (status ?? "").toLowerCase();
   return (
     <Badge
       variant="outline"

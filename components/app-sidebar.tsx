@@ -51,11 +51,11 @@ const data = {
           url: "/dashboard/users",
           icon: Users,
         },
-        {
-          title: "Inactive Users",
-          url: "/dashboard/users/inactive",
-          icon: UserX,
-        },
+        // {
+        //   title: "Inactive Users",
+        //   url: "/dashboard/users/inactive",
+        //   icon: UserX,
+        // },
         {
           title: "Memories",
           url: "/dashboard/memories",
@@ -116,15 +116,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const userData = user
     ? {
-        name: user.name,
-        email: user.email,
-        avatar: "",
-      }
+      name: user.name,
+      email: user.email,
+      avatar: "",
+    }
     : {
-        name: "Guest",
-        email: "",
-        avatar: "",
-      };
+      name: "Guest",
+      email: "",
+      avatar: "",
+    };
 
   return (
     <Sidebar {...props}>

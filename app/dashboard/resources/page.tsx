@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,91 +49,77 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-type Resource = {
-  id: number;
-  title: string;
-  type: "article" | "video" | "guide" | "faq";
-  category: string;
-  status: "published" | "draft";
-  updatedAt: string;
-};
-
-const initialResources: Resource[] = [
-  {
-    id: 1,
-    title: "How to Create Meaningful Memories",
-    type: "article",
-    category: "Getting Started",
-    status: "published",
-    updatedAt: "2026-07-12",
-  },
-  {
-    id: 2,
-    title: "Trusted Contacts Explained",
-    type: "video",
-    category: "Safety",
-    status: "published",
-    updatedAt: "2026-07-08",
-  },
-  {
-    id: 3,
-    title: "Planning Memorial Preferences",
-    type: "guide",
-    category: "Memorial",
-    status: "draft",
-    updatedAt: "2026-07-20",
-  },
-  {
-    id: 4,
-    title: "What happens after inactivity?",
-    type: "faq",
-    category: "Safety",
-    status: "published",
-    updatedAt: "2026-06-30",
-  },
-];
+import { useResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/use-resources";
+import { ResourceItem } from "@/lib/api/resources.api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const emptyForm = {
   title: "",
-  type: "article" as Resource["type"],
-  category: "Getting Started",
-  status: "draft" as Resource["status"],
+  description: "",
 };
 
-export default function ResourcesPage() {
-  const [resources, setResources] = useState(initialResources);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyForm);
+function useDebouncedValue<T>(value: T, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 
-  const filtered = useMemo(() => {
-    return resources.filter((resource) => {
-      const matchesSearch = resource.title
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      const matchesType = typeFilter === "all" || resource.type === typeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [resources, search, typeFilter]);
+export default function ResourcesPage() {
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+
+  // page 1 pe le aao jab bhi search badlein
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+
+  const { data, isLoading, isError, error, refetch } = useResources({
+    page,
+    limit: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+  });
+
+  const resources = data?.data || [];
+  const pagination = data?.pagination;
+
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sare mutation hooks top-level pe — component ke andar hooks kabhi
+  // event handler ya loop ke andar call nahi karte (Rules of Hooks)
+  const { mutate: createResource, isPending: isCreating } = useCreateResource();
+  const { mutate: updateResource, isPending: isUpdating } = useUpdateResource();
+  const { mutate: deleteResource, isPending: isDeleting } = useDeleteResource();
+  const isSaving = isCreating || isUpdating;
 
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedFile(null);
     setOpen(true);
   };
 
-  const openEdit = (resource: Resource) => {
-    setEditingId(resource.id);
+  const openEdit = (resource: ResourceItem) => {
+    setEditingId(resource._id);
     setForm({
       title: resource.title,
-      type: resource.type,
-      category: resource.category,
-      status: resource.status,
+      description: "",
     });
+    setSelectedFile(null);
     setOpen(true);
   };
+
+  useEffect(() => {
+    if (isError && error) {
+      toast.error(error.message ?? "Failed to load resources");
+    }
+  }, [isError, error]);
 
   const saveResource = () => {
     if (!form.title.trim()) {
@@ -138,45 +127,45 @@ export default function ResourcesPage() {
       return;
     }
 
+    const body = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      files: selectedFile,
+    };
+
     if (editingId) {
-      setResources((prev) =>
-        prev.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                ...form,
-                updatedAt: new Date().toISOString().slice(0, 10),
-              }
-            : item
-        )
-      );
-      toast.success("Resource updated");
-    } else {
-      setResources((prev) => [
+      updateResource(
+        { id: editingId, body },
         {
-          id: Math.max(...prev.map((r) => r.id)) + 1,
-          ...form,
-          updatedAt: new Date().toISOString().slice(0, 10),
+          onSuccess: () => {
+            toast.success("Resource updated successfully");
+            setOpen(false);
+            refetch(); // list ko taza data ke saath refresh karo
+          },
+          onError: (err) => toast.error(err?.message ?? "Failed to update resource"),
+        }
+      );
+    } else {
+      createResource(body, {
+        onSuccess: () => {
+          toast.success("Resource created successfully");
+          setOpen(false);
+          setPage(1); // naya resource top pe dekhne ke liye page 1 pe le aao
+          refetch(); // list ko taza data ke saath refresh karo
         },
-        ...prev,
-      ]);
-      toast.success("Resource created");
+        onError: (err) => toast.error(err?.message ?? "Failed to create resource"),
+      });
     }
-    setOpen(false);
   };
 
-  const togglePublish = (id: number) => {
-    setResources((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status: item.status === "published" ? "draft" : "published",
-            }
-          : item
-      )
-    );
-    toast.success("Publish status updated");
+  const handleDelete = (id: string) => {
+    deleteResource(id, {
+      onSuccess: () => {
+        toast.success("Resource deleted successfully");
+        refetch(); // list ko taza data ke saath refresh karo
+      },
+      onError: (err) => toast.error(err?.message ?? "Failed to delete resource"),
+    });
   };
 
   return (
@@ -186,7 +175,7 @@ export default function ResourcesPage() {
         description="Manage educational articles, videos, guides, and FAQs."
         actions={
           <Button onClick={openCreate}>
-            <Plus className="size-4" />
+            <Plus className="size-4 mr-2" />
             Create Resource
           </Button>
         }
@@ -195,28 +184,14 @@ export default function ResourcesPage() {
       <Card>
         <CardHeader className="gap-4">
           <CardTitle>Educational Resources</CardTitle>
-          <div className="flex flex-col gap-3 lg:flex-row">
-            <div className="relative flex-1">
-              <Search className="text-muted-foreground absolute top-2.5 left-3 size-4" />
-              <Input
-                className="pl-9"
-                placeholder="Search resources..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full lg:w-44">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="article">Articles</SelectItem>
-                <SelectItem value="video">Videos</SelectItem>
-                <SelectItem value="guide">Guides</SelectItem>
-                <SelectItem value="faq">FAQs</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="relative max-w-sm">
+            <Search className="text-muted-foreground absolute top-2.5 left-3 size-4" />
+            <Input
+              className="pl-9"
+              placeholder="Search resources..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -224,145 +199,181 @@ export default function ResourcesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((resource) => (
-                <TableRow key={resource.id}>
-                  <TableCell className="font-medium">{resource.title}</TableCell>
-                  <TableCell className="capitalize">{resource.type}</TableCell>
-                  <TableCell>{resource.category}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={resource.status} />
-                  </TableCell>
-                  <TableCell>{resource.updatedAt}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(resource)}>
-                          <Pencil className="size-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => togglePublish(resource.id)}
-                        >
-                          {resource.status === "published"
-                            ? "Unpublish"
-                            : "Publish"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => {
-                            setResources((prev) =>
-                              prev.filter((item) => item.id !== resource.id)
-                            );
-                            toast.success("Resource deleted");
-                          }}
-                        >
-                          <Trash2 className="size-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {isLoading ? (
+                [0, 1, 2, 3, 4].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell className="py-2">
+                      <Skeleton className="h-4 w-[150px]" />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Skeleton className="h-4 w-[200px]" />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Skeleton className="h-4 w-[100px]" />
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                ))
+              ) : resources.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-4">
+                    No resources found.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                resources.map((resource) => (
+                  <TableRow key={resource._id}>
+                    <TableCell className="font-medium">{resource.title}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-xs truncate">
+                      {resource.description || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(resource.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" disabled={isDeleting}>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(resource)}>
+                            <Pencil className="size-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleDelete(resource._id)}
+                          >
+                            <Trash2 className="size-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex justify-end items-center gap-4 mt-4">
+              <span className="text-sm text-muted-foreground">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === pagination.totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Resource" : "Create Resource"}
-            </DialogTitle>
+            <DialogTitle>{editingId ? "Edit Resource" : "Create Resource"}</DialogTitle>
           </DialogHeader>
+
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="res-title">Title</Label>
               <Input
-                id="title"
+                id="res-title"
+                placeholder="Enter title..."
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
+
             <div className="grid gap-2">
-              <Label>Type</Label>
-              <Select
-                value={form.type}
-                onValueChange={(value: Resource["type"]) =>
-                  setForm({ ...form, type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="article">Article</SelectItem>
-                  <SelectItem value="video">Video</SelectItem>
-                  <SelectItem value="guide">Guide</SelectItem>
-                  <SelectItem value="faq">FAQ</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="res-description">Description</Label>
+              <Textarea
+                id="res-description"
+                placeholder="Enter description..."
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
             </div>
+
             <div className="grid gap-2">
-              <Label>Category</Label>
-              <Select
-                value={form.category}
-                onValueChange={(value) =>
-                  setForm({ ...form, category: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Getting Started">Getting Started</SelectItem>
-                  <SelectItem value="Safety">Safety</SelectItem>
-                  <SelectItem value="Memorial">Memorial</SelectItem>
-                  <SelectItem value="Subscriptions">Subscriptions</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value: Resource["status"]) =>
-                  setForm({ ...form, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="body">Content</Label>
-              <Textarea id="body" placeholder="Resource content..." rows={4} />
+              <Label>File</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*,video/*,.pdf,.doc,.docx"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setSelectedFile(f);
+                }}
+              />
+
+              {selectedFile ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="flex-1 truncate" title={selectedFile.name}>
+                    {selectedFile.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {selectedFile.size < 1024 * 1024
+                      ? `${(selectedFile.size / 1024).toFixed(0)} KB`
+                      : `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-4 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors w-full justify-center"
+                >
+                  <Upload className="size-4" />
+                  Click to upload a file
+                </button>
+              )}
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={saveResource}>Save</Button>
+            <Button onClick={saveResource} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
