@@ -22,7 +22,6 @@ export type ResourcesResponse = {
   };
 };
 
-// Search aur type ko optional params banaya hai
 export type GetResourcesParams = {
   page: number;
   limit: number;
@@ -36,14 +35,29 @@ export type ResourceCreateBody = {
   files?: File | null;
 };
 
-export type CreateResourceResponse = {
+// Single resource fetch/create/update sab isi shape ka response dete hain,
+// isliye ek hi type reuse kar rahe hain — do jagah maintain nahi karni
+export type ResourceDetailResponse = {
   success: boolean;
   message: string;
   data: ResourceItem;
 };
 
+export type CreateResourceResponse = ResourceDetailResponse;
+
+export type DeleteResourceResponse = {
+  success: boolean;
+  message: string;
+};
+
 export async function getResources(params: GetResourcesParams) {
   const { data } = await API.get<ResourcesResponse>('/admin/resource', { params });
+  return data;
+}
+
+// Naya function — ek single resource fetch karne ke liye (detail page ke liye)
+export async function getResource(id: string) {
+  const { data } = await API.get<ResourceDetailResponse>(`/admin/resource/${id}`);
   return data;
 }
 
@@ -70,6 +84,6 @@ export async function updateResource(id: string, body: ResourceCreateBody) {
 }
 
 export async function deleteResource(id: string) {
-  const { data } = await API.delete<{ success: boolean; message: string }>(`/admin/resource/${id}`);
+  const { data } = await API.delete<DeleteResourceResponse>(`/admin/resource/${id}`);
   return data;
 }

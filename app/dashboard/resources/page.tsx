@@ -135,7 +135,7 @@ export default function ResourcesPage() {
 
     if (editingId) {
       updateResource(
-        { id: editingId, body },
+        { id: editingId, body: body as any },
         {
           onSuccess: () => {
             toast.success("Resource updated successfully");
@@ -146,7 +146,7 @@ export default function ResourcesPage() {
         }
       );
     } else {
-      createResource(body, {
+      createResource(body as any, {
         onSuccess: () => {
           toast.success("Resource created successfully");
           setOpen(false);
@@ -159,7 +159,7 @@ export default function ResourcesPage() {
   };
 
   const handleDelete = (id: string) => {
-    deleteResource(id, {
+    deleteResource(id as any, {
       onSuccess: () => {
         toast.success("Resource deleted successfully");
         refetch(); // list ko taza data ke saath refresh karo

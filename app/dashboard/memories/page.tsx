@@ -114,7 +114,7 @@ export default function MemoriesPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Total Memories" value={String(data?.total ?? memories.length)} icon={Heart} />
+        <StatCard title="Total Memories" value={String(memories.length)} icon={Heart} />
         {/* <StatCard
           title="Scheduled"
           value={String(memories.filter((m) => m.status === "scheduled").length)}
@@ -217,12 +217,12 @@ export default function MemoriesPage() {
                     </TableCell>
 
                     <TableCell>
-                      <StatusBadge status={memory.status} />
+                      <StatusBadge status={memory.status as any} />
                     </TableCell>
 
                     <TableCell>{new Date(memory.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <StatusBadge status={memory?.visibility} />
+                      <StatusBadge status={memory?.visibility as any} />
                     </TableCell>
 
                     <TableCell className="text-right">

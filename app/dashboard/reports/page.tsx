@@ -457,7 +457,7 @@ export default function ReportsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <StatusBadge status={report.status} />
+                      <StatusBadge status={report.status as any} />
                     </TableCell>
 
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
