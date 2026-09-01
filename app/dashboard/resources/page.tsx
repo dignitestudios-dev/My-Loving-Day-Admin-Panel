@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
+  FileText,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -52,6 +53,64 @@ import { Textarea } from "@/components/ui/textarea";
 import { useResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/use-resources";
 import { ResourceItem } from "@/lib/api/resources.api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/utils/error";
+import { filterSafeSearchInput } from "@/lib/utils/sanitize";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const ALLOWED_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "mp4",
+  "mov",
+  "webm",
+  "pdf",
+  "doc",
+  "docx",
+];
+
+function validateTitle(title: string): string | null {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return "Title is required";
+  }
+  if (trimmed.length < 3) {
+    return "Title must be at least 3 characters";
+  }
+  if (trimmed.length > 100) {
+    return "Title cannot exceed 100 characters";
+  }
+  return null;
+}
+
+function validateDescription(description: string): string | null {
+  const trimmed = description.trim();
+  if (!trimmed) {
+    return "Description is required";
+  }
+  if (trimmed.length < 10) {
+    return "Description must be at least 10 characters";
+  }
+  if (trimmed.length > 1000) {
+    return "Description cannot exceed 1000 characters";
+  }
+  return null;
+}
+
+function validateFile(file: File | null): string | null {
+  if (!file) return null;
+  if (file.size > MAX_FILE_SIZE) {
+    return "File size cannot exceed 50MB";
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+    return "Unsupported file format. Please upload an image, video, PDF, or Word document.";
+  }
+  return null;
+}
 
 const emptyForm = {
   title: "",
@@ -73,7 +132,6 @@ export default function ResourcesPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
 
-  // page 1 pe le aao jab bhi search badlein
   useEffect(() => { setPage(1); }, [debouncedSearch]);
 
   const { data, isLoading, isError, error, refetch } = useResources({
@@ -87,12 +145,21 @@ export default function ResourcesPage() {
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingResource, setEditingResource] = useState<ResourceItem | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<{
+    title?: string;
+    description?: string;
+    file?: string;
+  }>({});
+  const [touched, setTouched] = useState<{
+    title?: boolean;
+    description?: boolean;
+    file?: boolean;
+  }>({});
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Sare mutation hooks top-level pe — component ke andar hooks kabhi
-  // event handler ya loop ke andar call nahi karte (Rules of Hooks)
   const { mutate: createResource, isPending: isCreating } = useCreateResource();
   const { mutate: updateResource, isPending: isUpdating } = useUpdateResource();
   const { mutate: deleteResource, isPending: isDeleting } = useDeleteResource();
@@ -100,18 +167,26 @@ export default function ResourcesPage() {
 
   const openCreate = () => {
     setEditingId(null);
+    setEditingResource(null);
     setForm(emptyForm);
     setSelectedFile(null);
+    setErrors({});
+    setTouched({});
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setOpen(true);
   };
 
   const openEdit = (resource: ResourceItem) => {
     setEditingId(resource._id);
+    setEditingResource(resource);
     setForm({
-      title: resource.title,
-      description: "",
+      title: resource.title || "",
+      description: resource.description || "",
     });
     setSelectedFile(null);
+    setErrors({});
+    setTouched({});
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setOpen(true);
   };
 
@@ -121,9 +196,67 @@ export default function ResourcesPage() {
     }
   }, [isError, error]);
 
+  const handleTitleChange = (val: string) => {
+    setForm((prev) => ({ ...prev, title: val }));
+    if (touched.title || errors.title) {
+      const err = validateTitle(val);
+      setErrors((prev) => ({ ...prev, title: err || undefined }));
+    }
+  };
+
+  const handleTitleBlur = () => {
+    setTouched((prev) => ({ ...prev, title: true }));
+    const err = validateTitle(form.title);
+    setErrors((prev) => ({ ...prev, title: err || undefined }));
+  };
+
+  const handleDescriptionChange = (val: string) => {
+    setForm((prev) => ({ ...prev, description: val }));
+    if (touched.description || errors.description) {
+      const err = validateDescription(val);
+      setErrors((prev) => ({ ...prev, description: err || undefined }));
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    setTouched((prev) => ({ ...prev, description: true }));
+    const err = validateDescription(form.description);
+    setErrors((prev) => ({ ...prev, description: err || undefined }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setSelectedFile(f);
+    setTouched((prev) => ({ ...prev, file: true }));
+    const err = validateFile(f);
+    setErrors((prev) => ({ ...prev, file: err || undefined }));
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    setErrors((prev) => ({ ...prev, file: undefined }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const saveResource = () => {
-    if (!form.title.trim()) {
-      toast.error("Title is required");
+    setTouched({ title: true, description: true, file: true });
+
+    const titleError = validateTitle(form.title);
+    const descriptionError = validateDescription(form.description);
+    const fileError = validateFile(selectedFile);
+
+    const newErrors = {
+      title: titleError || undefined,
+      description: descriptionError || undefined,
+      file: fileError || undefined,
+    };
+    setErrors(newErrors);
+
+    if (titleError || descriptionError || fileError) {
+      const firstErrorMessage = titleError || descriptionError || fileError;
+      if (firstErrorMessage) {
+        toast.error(firstErrorMessage);
+      }
       return;
     }
 
@@ -140,9 +273,12 @@ export default function ResourcesPage() {
           onSuccess: () => {
             toast.success("Resource updated successfully");
             setOpen(false);
-            refetch(); // list ko taza data ke saath refresh karo
+            refetch();
           },
-          onError: (err) => toast.error(err?.message ?? "Failed to update resource"),
+          onError: (err) => {
+            const message = getApiErrorMessage(err, "Failed to update resource");
+            toast.error(message);
+          },
         }
       );
     } else {
@@ -150,10 +286,13 @@ export default function ResourcesPage() {
         onSuccess: () => {
           toast.success("Resource created successfully");
           setOpen(false);
-          setPage(1); // naya resource top pe dekhne ke liye page 1 pe le aao
-          refetch(); // list ko taza data ke saath refresh karo
+          setPage(1);
+          refetch();
         },
-        onError: (err) => toast.error(err?.message ?? "Failed to create resource"),
+        onError: (err) => {
+          const message = getApiErrorMessage(err, "Failed to create resource");
+          toast.error(message);
+        },
       });
     }
   };
@@ -162,9 +301,12 @@ export default function ResourcesPage() {
     deleteResource(id as any, {
       onSuccess: () => {
         toast.success("Resource deleted successfully");
-        refetch(); // list ko taza data ke saath refresh karo
+        refetch();
       },
-      onError: (err) => toast.error(err?.message ?? "Failed to delete resource"),
+      onError: (err) => {
+        const message = getApiErrorMessage(err, "Failed to delete resource");
+        toast.error(message);
+      },
     });
   };
 
@@ -190,7 +332,7 @@ export default function ResourcesPage() {
               className="pl-9"
               placeholder="Search resources..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(filterSafeSearchInput(e.target.value))}
             />
           </div>
         </CardHeader>
@@ -299,42 +441,81 @@ export default function ResourcesPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="res-title">Title</Label>
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="res-title">
+                  Title <span className="text-destructive">*</span>
+                </Label>
+                <span className="text-[11px] text-muted-foreground">
+                  {form.title.length}/100
+                </span>
+              </div>
               <Input
                 id="res-title"
                 placeholder="Enter title..."
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                maxLength={100}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                onBlur={handleTitleBlur}
+                className={cn(
+                  errors.title &&
+                    "border-destructive focus-visible:ring-destructive"
+                )}
               />
+              {errors.title && (
+                <p className="text-xs font-medium text-destructive">
+                  {errors.title}
+                </p>
+              )}
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="res-description">Description</Label>
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="res-description">
+                  Description <span className="text-destructive">*</span>
+                </Label>
+                <span className="text-[11px] text-muted-foreground">
+                  {form.description.length}/1000
+                </span>
+              </div>
               <Textarea
                 id="res-description"
-                placeholder="Enter description..."
+                placeholder="Enter description (min. 10 characters)..."
                 rows={3}
+                maxLength={1000}
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                className={cn(
+                  errors.description &&
+                    "border-destructive focus-visible:ring-destructive"
+                )}
               />
+              {errors.description && (
+                <p className="text-xs font-medium text-destructive">
+                  {errors.description}
+                </p>
+              )}
             </div>
 
-            <div className="grid gap-2">
-              <Label>File</Label>
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label>File Attachment</Label>
+                <span className="text-[11px] text-muted-foreground">
+                  Max 50MB
+                </span>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
                 accept="image/*,video/*,.pdf,.doc,.docx"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  setSelectedFile(f);
-                }}
+                onChange={handleFileChange}
               />
 
               {selectedFile ? (
                 <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <FileText className="size-4 text-primary shrink-0" />
                   <span className="flex-1 truncate" title={selectedFile.name}>
                     {selectedFile.name}
                   </span>
@@ -345,24 +526,56 @@ export default function ResourcesPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
+                    onClick={clearSelectedFile}
                     className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    title="Remove file"
                   >
                     <X className="size-4" />
                   </button>
+                </div>
+              ) : editingResource?.resourceImg && editingResource.resourceImg.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="size-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        Current file:
+                      </span>
+                      <span className="text-xs font-medium truncate max-w-[170px]" title={editingResource.resourceImg[0]?.filename}>
+                        {editingResource.resourceImg[0]?.filename || "Attached resource file"}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Replace
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-4 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors w-full justify-center"
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-4 text-sm transition-colors w-full justify-center",
+                    errors.file
+                      ? "border-destructive/60 text-destructive bg-destructive/5"
+                      : "border-muted-foreground/25 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}
                 >
                   <Upload className="size-4" />
-                  Click to upload a file
+                  Click to upload image, video, PDF or doc
                 </button>
+              )}
+
+              {errors.file && (
+                <p className="text-xs font-medium text-destructive">
+                  {errors.file}
+                </p>
               )}
             </div>
           </div>
@@ -372,7 +585,7 @@ export default function ResourcesPage() {
               Cancel
             </Button>
             <Button onClick={saveResource} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
+              {isSaving ? "Saving..." : editingId ? "Update Resource" : "Create Resource"}
             </Button>
           </DialogFooter>
         </DialogContent>

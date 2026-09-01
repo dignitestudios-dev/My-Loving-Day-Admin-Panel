@@ -10,6 +10,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useResetPasswordMutation } from "@/hooks/use-reset-password";
 import { RESET_TOKEN_KEY } from "@/lib/constants/reset-password";
+import { containsEmoji } from "@/lib/utils/password";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -47,6 +48,11 @@ const ResetPassword = () => {
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
+      return;
+    }
+
+    if (containsEmoji(password)) {
+      setError("Password cannot contain emojis or unsupported characters");
       return;
     }
 

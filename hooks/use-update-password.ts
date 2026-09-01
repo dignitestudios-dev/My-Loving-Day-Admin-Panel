@@ -8,6 +8,7 @@ import {
   updatePassword,
   type UpdatePasswordPayload,
 } from "@/lib/api/auth.api";
+import { getApiErrorMessage } from "@/lib/utils/error";
 
 export function useUpdatePasswordMutation() {
   return useMutation({
@@ -20,10 +21,10 @@ export function useUpdatePasswordMutation() {
       toast.success(data.message || "Password updated successfully");
     },
     onError: (error: AxiosError<{ message?: string }>) => {
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Unable to update password. Please try again.";
+      const message = getApiErrorMessage(
+        error,
+        "Unable to update password. Please try again."
+      );
       toast.error(message);
     },
   });

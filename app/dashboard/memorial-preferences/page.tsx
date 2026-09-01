@@ -27,6 +27,8 @@ import {
 
 import { useMemorials } from "@/hooks/use-memorial";
 import { truncate } from "@/lib/utils/truncate";
+import { filterSafeSearchInput } from "@/lib/utils/sanitize";
+import { getApiErrorMessage } from "@/lib/utils/error";
 
 // Simple debounced value hook (mirrors the one used in Users page)
 function useDebouncedValue<T>(value: T, delay = 400) {
@@ -43,13 +45,12 @@ const PAGE_SIZE = 10;
 export default function MemorialPreferencesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  // const [limit, setLimit] = useState(PAGE_SIZE);
   const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useMemorials({
     page,
     limit: PAGE_SIZE,
-    search: debouncedSearch.trim(),
+    search: filterSafeSearchInput(debouncedSearch).trim(),
   });
 
   useEffect(() => {
@@ -61,6 +62,11 @@ export default function MemorialPreferencesPage() {
 
   const router = useRouter();
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const safeValue = filterSafeSearchInput(e.target.value);
+    setSearch(safeValue);
+  };
+
   const viewRecord = (id: string) => {
     router.push(`/dashboard/memorial-preferences/${id}`);
   };
@@ -70,11 +76,6 @@ export default function MemorialPreferencesPage() {
       <PageHeader
         title="Memorial Preferences"
         description="View memorial wishes, search records, export information, and flag incomplete entries."
-      // actions={
-      //   <Button onClick={() => toast.success("Memorial records exported")}>
-      //     <Download className="size-4" /> Export Information
-      //   </Button>
-      // }
       />
 
       <Card>
@@ -85,9 +86,9 @@ export default function MemorialPreferencesPage() {
               <Search className="text-muted-foreground absolute top-2.5 left-3 size-4" />
               <Input
                 className="pl-9"
-                placeholder="Search records..."
+                placeholder="Search by name or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
 
@@ -96,7 +97,7 @@ export default function MemorialPreferencesPage() {
         <CardContent>
           {isError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p>{(error as Error)?.message || "Failed to load memorial records."}</p>
+              <p>{getApiErrorMessage(error, "Failed to load memorial records.")}</p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
                 Retry
               </Button>

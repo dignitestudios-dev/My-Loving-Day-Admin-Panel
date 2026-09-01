@@ -8,6 +8,7 @@ import { AxiosError } from "axios";
 
 import { loginAdmin, type LoginCredentials } from "@/lib/api/auth.api";
 import { setCredentials } from "@/lib/slices/authSlice";
+import { getApiErrorMessage } from "@/lib/utils/error";
 
 export function useLoginMutation() {
   const dispatch = useDispatch();
@@ -32,10 +33,10 @@ export function useLoginMutation() {
       router.push("/dashboard");
     },
     onError: (error: AxiosError<{ message?: string }>) => {
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Unable to login. Please try again.";
+      const message = getApiErrorMessage(
+        error,
+        "Unable to login. Please try again."
+      );
       toast.error(message);
     },
   });

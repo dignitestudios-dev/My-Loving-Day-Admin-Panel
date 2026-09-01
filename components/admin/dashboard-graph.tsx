@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { BarChart3, CalendarIcon, Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { useDashboardGraphQuery } from "@/hooks/use-dashboard";
@@ -43,8 +43,40 @@ const chartConfig = {
   subscriptions: { label: "Subscriptions", color: "#3b8ef0" },
 } satisfies ChartConfig;
 
-function formatChartDate(date: string, type: DashboardGraphType) {
-  const d = new Date(date);
+function parseValidDate(date: string | null | undefined): Date | null {
+  if (!date || typeof date !== "string") return null;
+  const trimmed = date.trim();
+  if (
+    !trimmed ||
+    trimmed.toLowerCase() === "invalid date" ||
+    trimmed === "null" ||
+    trimmed === "undefined"
+  ) {
+    return null;
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return d;
+  }
+  const parts = trimmed.split(/[-/]/).map(Number);
+  if (parts.length >= 2 && !parts.some(isNaN)) {
+    const year = parts[0];
+    const month = parts[1] - 1;
+    const day = parts[2] || 1;
+    const fallbackDate = new Date(year, month, day);
+    if (!isNaN(fallbackDate.getTime())) {
+      return fallbackDate;
+    }
+  }
+  return null;
+}
+
+function formatChartDate(
+  date: string | null | undefined,
+  type: DashboardGraphType
+): string {
+  const d = parseValidDate(date);
+  if (!d) return "";
   if (type === "yearly") {
     return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
   }
@@ -54,10 +86,13 @@ function formatChartDate(date: string, type: DashboardGraphType) {
   return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
 }
 
-function toDateValue(value: string) {
+function toDateValue(value: string | undefined | null) {
   if (!value) return undefined;
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  const parts = value.split("-").map(Number);
+  if (parts.length < 3 || parts.some(isNaN)) return undefined;
+  const [year, month, day] = parts;
+  const d = new Date(year, month - 1, day);
+  return isNaN(d.getTime()) ? undefined : d;
 }
 
 function toApiDate(date: Date) {
@@ -68,12 +103,12 @@ function toApiDate(date: Date) {
 }
 
 function formatRangeLabel(range: DateRange | undefined) {
-  if (!range?.from) return null;
+  if (!range?.from || isNaN(range.from.getTime())) return null;
   const from = range.from.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
-  if (!range.to) return from;
+  if (!range.to || isNaN(range.to.getTime())) return from;
   const to = range.to.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -106,10 +141,12 @@ export function DashboardGraph() {
 
   const chartData = useMemo(
     () =>
-      (data ?? []).map((point) => ({
-        ...point,
-        label: formatChartDate(point.date, graphType),
-      })),
+      (data ?? [])
+        .filter((point) => point && parseValidDate(point.date) !== null)
+        .map((point) => ({
+          ...point,
+          label: formatChartDate(point.date, graphType),
+        })),
     [data, graphType]
   );
 
@@ -260,9 +297,19 @@ export function DashboardGraph() {
             </Button>
           </div>
         ) : chartData.length === 0 ? (
-          <p className="text-muted-foreground py-16 text-center text-sm">
-            No data available for this period.
-          </p>
+          <div className="flex flex-col items-center justify-center gap-2.5 py-16 text-center">
+            <div className="bg-muted flex size-12 items-center justify-center rounded-full text-muted-foreground">
+              <BarChart3 className="size-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                No activity data available
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                There is no activity recorded for the selected time period.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="relative">
             {isFetching ? (

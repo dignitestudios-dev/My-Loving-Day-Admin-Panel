@@ -7,6 +7,7 @@ import { AxiosError } from "axios";
 
 import { resetPassword, type ResetPasswordPayload } from "@/lib/api/auth.api";
 import { clearResetSession } from "@/lib/constants/reset-password";
+import { getApiErrorMessage } from "@/lib/utils/error";
 
 export function useResetPasswordMutation() {
   const router = useRouter();
@@ -24,10 +25,10 @@ export function useResetPasswordMutation() {
       router.push("/auth/login");
     },
     onError: (error: AxiosError<{ message?: string }>) => {
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Unable to reset password. Please try again.";
+      const message = getApiErrorMessage(
+        error,
+        "Unable to reset password. Please try again."
+      );
       toast.error(message);
     },
   });

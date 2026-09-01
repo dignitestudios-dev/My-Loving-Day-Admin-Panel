@@ -1,4 +1,5 @@
 import { API } from "./axios";
+import { filterSafeSearchInput } from "@/lib/utils/sanitize";
 
 export type MediaFile = {
   _id: string;
@@ -60,7 +61,13 @@ export async function getMemorials(params: {
   limit: number;
   search?: string;
 }) {
-  const { data } = await API.get<MemorialResponse>("/admin/memorial", { params });
+  const cleanSearch = params.search ? filterSafeSearchInput(params.search).trim() : undefined;
+  const { data } = await API.get<MemorialResponse>("/admin/memorial", {
+    params: {
+      ...params,
+      search: cleanSearch || undefined,
+    },
+  });
   return data;
 }
 

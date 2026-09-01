@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardQuery } from "@/hooks/use-dashboard";
 import { useUsersQuery } from "@/hooks/use-users";
 import type { AdminUser } from "@/lib/api/users.api";
+import { filterSafeSearchInput } from "@/lib/utils/sanitize";
 
 function getInitials(name: string | null, email: string) {
   if (name?.trim()) {
@@ -236,7 +237,7 @@ export default function UsersPage() {
                 className="pl-9"
                 placeholder="Search by name or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => setSearch(filterSafeSearchInput(e.target.value))}
               />
             </div>
             <Select value={limit} onValueChange={setLimit}>
