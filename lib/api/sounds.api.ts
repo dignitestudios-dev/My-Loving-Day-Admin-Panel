@@ -161,7 +161,7 @@ export async function getPresignedUrl(payload: PresignedUrlPayload) {
 export async function uploadToS3(uploadUrl: string, file: File) {
   const contentType = getFileContentType(file);
 
-  // 1. First attempt: Direct browser fetch with minimal headers
+  // 1. Direct browser fetch to S3 (Bypasses server payload limits entirely)
   try {
     const directResponse = await fetch(uploadUrl, {
       method: "PUT",
@@ -177,14 +177,18 @@ export async function uploadToS3(uploadUrl: string, file: File) {
         statusText: directResponse.statusText,
       };
     }
+
+    const errText = await directResponse.text().catch(() => "");
+    console.warn("Direct S3 PUT returned error status:", directResponse.status, errText);
   } catch (err) {
     console.warn(
-      "Direct browser PUT to S3 was blocked by CORS policy. Routing via server proxy...",
+      "Direct browser upload to S3 failed (CORS or network error). Attempting server proxy fallback...",
       err
     );
   }
 
   // 2. Fallback: Next.js API route proxy (Node.js runtime has no browser CORS restrictions)
+  // Note: On Vercel / serverless deployments, requests larger than 4.5MB will return 413.
   const proxyResponse = await fetch("/api/upload-s3", {
     method: "PUT",
     body: file,
@@ -193,6 +197,12 @@ export async function uploadToS3(uploadUrl: string, file: File) {
       "x-content-type": contentType,
     },
   });
+
+  if (proxyResponse.status === 413) {
+    throw new Error(
+      `Upload failed (413 Content Too Large): Audio file size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds serverless proxy limit. Please configure CORS on your AWS S3 bucket to allow direct browser uploads.`
+    );
+  }
 
   if (!proxyResponse.ok) {
     const errorJson = await proxyResponse.json().catch(() => ({}));
@@ -250,6 +260,13 @@ export async function uploadSingleFile(
   onProgress?: (step: string) => void
 ): Promise<string> {
   const contentType = getFileContentType(file);
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(
+      `File "${file.name}" (${(file.size / (1024 * 1024)).toFixed(2)}MB) cannot exceed maximum size of 5MB.`
+    );
+  }
 
   // 1. Get Presigned URL
   onProgress?.(`Requesting upload URL for ${file.name}...`);

@@ -236,8 +236,9 @@ export default function MusicResourcePage() {
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Audio file size cannot exceed 50MB");
+    const MAX_AUDIO_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_AUDIO_SIZE) {
+      toast.error("Audio file size cannot exceed 5MB");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -275,8 +276,9 @@ export default function MusicResourcePage() {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Cover image size cannot exceed 10MB");
+    const MAX_COVER_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_COVER_SIZE) {
+      toast.error("Cover image size cannot exceed 5MB");
       if (coverInputRef.current) coverInputRef.current.value = "";
       return;
     }
@@ -335,6 +337,16 @@ export default function MusicResourcePage() {
 
     if (!selectedFile) {
       toast.error("Please select an audio file to upload");
+      return;
+    }
+
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error("Audio file size cannot exceed 5MB");
+      return;
+    }
+
+    if (selectedCover && selectedCover.size > 5 * 1024 * 1024) {
+      toast.error("Cover image size cannot exceed 5MB");
       return;
     }
 
@@ -1235,7 +1247,7 @@ export default function MusicResourcePage() {
                       Click or drag audio file here
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      MP3, WAV, M4A, AAC up to 50MB
+                      MP3, WAV, M4A, AAC up to 5MB
                     </p>
                   </div>
                 )}
@@ -1317,7 +1329,7 @@ export default function MusicResourcePage() {
                     <p className="text-[10px] text-muted-foreground">
                       {selectedCover
                         ? formatFileSize(selectedCover.size)
-                        : "JPG, PNG, WEBP up to 10MB"}
+                        : "JPG, PNG, WEBP up to 5MB"}
                     </p>
                   </div>
                 </div>

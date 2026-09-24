@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function PUT(req: NextRequest) {
   try {
     const uploadUrl = req.headers.get("x-upload-url");
-    const contentType = req.headers.get("x-content-type") || "audio/mpeg";
+    const contentType = req.headers.get("x-content-type") || "application/octet-stream";
 
     if (!uploadUrl) {
       return NextResponse.json(
