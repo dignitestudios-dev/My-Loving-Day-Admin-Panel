@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/music-resources",
+        destination: "/dashboard/music-resource",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
