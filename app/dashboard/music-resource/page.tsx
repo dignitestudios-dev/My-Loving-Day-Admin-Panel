@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Loader2,
   X,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1189,6 +1190,7 @@ export default function MusicResourcePage() {
               </Label>
               <Input
                 id="sound-name"
+                maxLength={100}
                 placeholder="e.g. Gentle Bells, Joyful Chorus"
                 value={soundName}
                 onChange={(e) => setSoundName(e.target.value)}
@@ -1388,21 +1390,21 @@ export default function MusicResourcePage() {
 
       {/* Sound Inspector Dialog */}
       <Dialog open={!!inspectSound} onOpenChange={(open) => !open && setInspectSound(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Disc className="size-5 text-primary" />
-              Sound Resource Details
+        <DialogContent className="sm:max-w-lg w-full max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto overflow-x-hidden p-5 sm:p-6">
+          <DialogHeader className="min-w-0">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold min-w-0 truncate">
+              <Disc className="size-5 text-primary shrink-0" />
+              <span className="truncate">Sound Resource Details</span>
             </DialogTitle>
           </DialogHeader>
 
           {inspectSound && (
-            <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-3.5 py-1 min-w-0 w-full">
               {/* Cover Art & Player Header Card */}
-              <div className="rounded-xl border bg-muted/40 p-4 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
+              <div className="rounded-xl border bg-muted/40 p-3.5 flex flex-col gap-3 min-w-0 w-full">
+                <div className="flex items-center gap-3 min-w-0 w-full">
                   {/* Cover Photo */}
-                  <div className="relative size-16 shrink-0 overflow-hidden rounded-xl border bg-muted flex items-center justify-center shadow-xs">
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border bg-muted flex items-center justify-center shadow-xs">
                     {getCoverLocation(inspectSound.cover) ? (
                       <img
                         src={getCoverLocation(inspectSound.cover)!}
@@ -1410,47 +1412,55 @@ export default function MusicResourcePage() {
                         className="size-full object-cover"
                       />
                     ) : (
-                      <Music className="size-8 text-muted-foreground/50" />
+                      <div className="size-full flex items-center justify-center bg-primary/10 text-primary">
+                        <Music className="size-6" />
+                      </div>
                     )}
                   </div>
 
                   <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-semibold text-foreground truncate text-base">
+                    <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                      <h4
+                        className="font-semibold text-foreground text-sm truncate min-w-0 flex-1"
+                        title={inspectSound.name}
+                      >
                         {inspectSound.name}
                       </h4>
-                      <Badge variant="secondary" className="font-mono text-xs shrink-0">
+                      <Badge variant="secondary" className="font-mono text-xs shrink-0 px-2 py-0.5 font-normal">
                         {formatDuration(inspectSound.duration)}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {inspectSound.file?.filename}
+                    <p
+                      className="text-xs text-muted-foreground truncate mt-0.5 min-w-0"
+                      title={inspectSound.file?.filename || "sound.mp3"}
+                    >
+                      {inspectSound.file?.filename || "sound.mp3"}
                     </p>
                   </div>
                 </div>
 
                 {/* Interactive Audio Player in Inspector */}
                 {inspectSoundFileUrl ? (
-                  <div className="rounded-lg border bg-background/80 p-3 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="font-medium flex items-center gap-1.5 text-foreground">
-                        <FileAudio className="size-3.5 text-primary" />
+                  <div className="rounded-lg border bg-background p-3 flex flex-col gap-2.5 min-w-0 w-full">
+                    <div className="flex items-center justify-between text-xs min-w-0">
+                      <span className="font-medium flex items-center gap-1.5 text-foreground shrink-0">
+                        <Radio className="size-3.5 text-primary" />
                         Audio Player
                       </span>
-                      <span className="font-mono">
+                      <span className="font-mono text-muted-foreground text-xs shrink-0">
                         {activeSound?._id === inspectSound._id
                           ? `${formatDuration(currentTime)} / ${formatDuration(audioDuration || inspectSound.duration)}`
-                          : formatDuration(inspectSound.duration)}
+                          : `0.0s / ${formatDuration(inspectSound.duration)}`}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3 min-w-0 w-full">
                       <Button
                         type="button"
                         size="sm"
                         variant={activeSound?._id === inspectSound._id && isPlaying ? "default" : "outline"}
                         onClick={() => handleTogglePlay(inspectSound)}
-                        className="gap-2 shrink-0 h-8"
+                        className="gap-2 shrink-0 h-8 font-medium text-xs shadow-xs"
                       >
                         {activeSound?._id === inspectSound._id && isLoadingAudio ? (
                           <Loader2 className="size-3.5 animate-spin" />
@@ -1464,21 +1474,31 @@ export default function MusicResourcePage() {
                         </span>
                       </Button>
 
-                      {activeSound?._id === inspectSound._id && (
-                        <input
-                          type="range"
-                          min={0}
-                          max={audioDuration || inspectSound.duration || 100}
-                          step={0.1}
-                          value={currentTime}
-                          onChange={(e) => handleSeek(Number(e.target.value))}
-                          className="flex-1 h-1.5 bg-muted accent-primary cursor-pointer rounded-lg"
-                        />
-                      )}
+                      {/* Seek Slider - always visible */}
+                      <input
+                        type="range"
+                        min={0}
+                        max={
+                          activeSound?._id === inspectSound._id
+                            ? audioDuration || inspectSound.duration || 100
+                            : inspectSound.duration || 100
+                        }
+                        step={0.1}
+                        value={activeSound?._id === inspectSound._id ? currentTime : 0}
+                        onChange={(e) => {
+                          if (activeSound?._id !== inspectSound._id) {
+                            handleTogglePlay(inspectSound);
+                          }
+                          handleSeek(Number(e.target.value));
+                        }}
+                        className="flex-1 min-w-0 h-1.5 bg-muted accent-primary cursor-pointer rounded-lg"
+                      />
                     </div>
 
-                    <details className="text-[11px] text-muted-foreground mt-1 cursor-pointer">
-                      <summary className="hover:text-foreground">Native browser audio controls</summary>
+                    <details className="text-[11px] text-muted-foreground mt-0.5 cursor-pointer select-none">
+                      <summary className="hover:text-foreground list-none flex items-center gap-1">
+                        <span className="text-[9px]">▶</span> Native browser audio controls
+                      </summary>
                       <audio
                         src={inspectSoundFileUrl}
                         controls
@@ -1497,39 +1517,39 @@ export default function MusicResourcePage() {
               </div>
 
               {/* Metadata Grid */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-lg border p-2.5 space-y-1">
-                  <span className="text-muted-foreground uppercase font-medium tracking-wider text-[10px]">
-                    MIME Type
+              <div className="grid grid-cols-2 gap-3 text-xs min-w-0 w-full">
+                <div className="rounded-xl border p-3 space-y-1 bg-card min-w-0 overflow-hidden">
+                  <span className="text-muted-foreground uppercase font-semibold tracking-wider text-[10px] block truncate">
+                    MIME TYPE
                   </span>
-                  <p className="font-mono text-foreground font-medium truncate">
+                  <p className="font-mono text-foreground font-semibold text-xs truncate" title={inspectSound.file?.mimetype || "audio/mpeg"}>
                     {inspectSound.file?.mimetype || "audio/mpeg"}
                   </p>
                 </div>
 
-                <div className="rounded-lg border p-2.5 space-y-1">
-                  <span className="text-muted-foreground uppercase font-medium tracking-wider text-[10px]">
-                    File Size
+                <div className="rounded-xl border p-3 space-y-1 bg-card min-w-0 overflow-hidden">
+                  <span className="text-muted-foreground uppercase font-semibold tracking-wider text-[10px] block truncate">
+                    FILE SIZE
                   </span>
-                  <p className="font-mono text-foreground font-medium">
+                  <p className="font-mono text-foreground font-semibold text-xs truncate">
                     {formatFileSize(inspectSound.file?.size)}
                   </p>
                 </div>
 
-                <div className="rounded-lg border p-2.5 space-y-1">
-                  <span className="text-muted-foreground uppercase font-medium tracking-wider text-[10px]">
-                    Uploaded On
+                <div className="rounded-xl border p-3 space-y-1 bg-card min-w-0 overflow-hidden">
+                  <span className="text-muted-foreground uppercase font-semibold tracking-wider text-[10px] block truncate">
+                    UPLOADED ON
                   </span>
-                  <p className="text-foreground font-medium">
+                  <p className="text-foreground font-semibold text-xs truncate">
                     {formatDateTime(inspectSound.createdAt)}
                   </p>
                 </div>
 
-                <div className="rounded-lg border p-2.5 space-y-1">
-                  <span className="text-muted-foreground uppercase font-medium tracking-wider text-[10px]">
-                    Sound ID
+                <div className="rounded-xl border p-3 space-y-1 bg-card min-w-0 overflow-hidden">
+                  <span className="text-muted-foreground uppercase font-semibold tracking-wider text-[10px] block truncate">
+                    SOUND ID
                   </span>
-                  <p className="font-mono text-muted-foreground truncate" title={inspectSound._id}>
+                  <p className="font-mono text-muted-foreground text-xs truncate" title={inspectSound._id}>
                     {inspectSound._id}
                   </p>
                 </div>
@@ -1537,14 +1557,14 @@ export default function MusicResourcePage() {
 
               {/* Uploader Card */}
               {inspectSound.user ? (
-                <div className="rounded-xl border p-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-10 border bg-muted">
+                <div className="rounded-xl border p-3 flex items-center justify-between gap-3 bg-card min-w-0 w-full overflow-hidden">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <Avatar className="size-10 border bg-muted shrink-0">
                       <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
                         {getInitials(inspectSound.user?.name || inspectSound.user?.email)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 flex-1">
                       <span className="font-semibold text-xs text-foreground truncate">
                         {inspectSound.user?.name || "Unnamed User"}
                       </span>
@@ -1552,7 +1572,7 @@ export default function MusicResourcePage() {
                         {inspectSound.user?.email}
                       </span>
                       {inspectSound.user?.userName && (
-                        <span className="text-[10px] text-primary">
+                        <span className="text-[10px] text-primary truncate">
                           @{inspectSound.user.userName}
                         </span>
                       )}
@@ -1568,15 +1588,15 @@ export default function MusicResourcePage() {
                   )}
                 </div>
               ) : (
-                <div className="rounded-xl border p-3 flex items-center gap-3 bg-muted/20">
-                  <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <div className="rounded-xl border p-3 flex items-center gap-3 bg-card min-w-0 w-full overflow-hidden">
+                  <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                     <Sparkles className="size-4" />
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-xs text-foreground">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-semibold text-xs text-foreground truncate">
                       Admin / Platform Upload
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground truncate">
                       Uploaded directly via Admin Panel
                     </span>
                   </div>
@@ -1585,39 +1605,45 @@ export default function MusicResourcePage() {
             </div>
           )}
 
-          <DialogFooter className="flex-col sm:flex-row justify-between items-center gap-2">
-            <div>
-              {inspectSound && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    const toDel = inspectSound;
-                    setInspectSound(null);
-                    setSoundToDelete(toDel);
-                  }}
-                  className="gap-1.5"
-                >
-                  <Trash2 className="size-4" />
-                  Delete Sound
-                </Button>
-              )}
-            </div>
+          <DialogFooter className="flex flex-row justify-end items-center gap-2 pt-2 min-w-0 w-full">
+            {inspectSound && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  const toDel = inspectSound;
+                  setInspectSound(null);
+                  setSoundToDelete(toDel);
+                }}
+                className="gap-1.5 bg-red-600 hover:bg-red-700 text-white font-medium shadow-xs shrink-0"
+              >
+                <Trash2 className="size-4" />
+                Delete Sound
+              </Button>
+            )}
 
-            <div className="flex items-center gap-2">
-              {inspectSoundFileUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleCopyUrl(inspectSoundFileUrl, inspectSound?._id)
-                  }
-                >
-                  <Copy className="size-4 mr-2" />
-                  Copy URL
-                </Button>
-              )}
-            </div>
+            {inspectSoundFileUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  handleCopyUrl(inspectSoundFileUrl, inspectSound?._id)
+                }
+                className="gap-1.5 font-medium shadow-xs shrink-0"
+              >
+                {copiedId === inspectSound?._id ? (
+                  <>
+                    <Check className="size-4 text-emerald-500" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-4" />
+                    Copy URL
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1627,22 +1653,26 @@ export default function MusicResourcePage() {
         open={!!soundToDelete}
         onOpenChange={(open) => !open && !isDeleting && setSoundToDelete(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="size-5" />
-              Delete Sound Resource
+        <AlertDialogContent className="sm:max-w-md w-full max-w-[calc(100%-2rem)] overflow-hidden p-6">
+          <AlertDialogHeader className="min-w-0 w-full text-left sm:text-left">
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive min-w-0">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span className="truncate">Delete Sound Resource</span>
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-muted-foreground text-sm leading-normal break-words min-w-0 w-full text-left mt-2">
               Are you sure you want to delete{" "}
-              <strong className="text-foreground font-semibold">
+              <strong className="text-foreground font-semibold break-all">
                 &ldquo;{soundToDelete?.name}&rdquo;
               </strong>
               ? This action cannot be undone and will permanently remove this audio track from the database.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting} onClick={() => setSoundToDelete(null)}>
+          <AlertDialogFooter className="flex flex-row justify-end items-center gap-2 min-w-0 w-full pt-2">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              onClick={() => setSoundToDelete(null)}
+              className="shrink-0"
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -1652,6 +1682,7 @@ export default function MusicResourcePage() {
                 e.preventDefault();
                 handleConfirmDelete();
               }}
+              className="bg-red-600 hover:bg-red-700 text-white shrink-0 font-medium"
             >
               {isDeleting ? "Deleting..." : "Delete Sound"}
             </AlertDialogAction>
